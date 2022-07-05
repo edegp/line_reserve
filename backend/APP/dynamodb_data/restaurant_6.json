@@ -40,9 +40,7 @@
   ],
   "shop": {
     "averageBudget": 3000,
-    "closeDay": [
-      0
-    ],
+    "closeDay": [0],
     "closeTime": "23:00",
     "coordinate": {
       "latitude": "43.0626529",
@@ -50,7 +48,7 @@
     },
     "displayOrder": 1,
     "imageUrl": "https://media.istockphoto.com/photos/bar-with-poster-and-lamps-picture-id629200476",
-    "lineAccountUrl": "https://line.me/R/ti/p/@xxxxxxxx",
+    "lineAccountUrl": "https://line.me/R/ti/p/@691xhteu",
     "openTime": "11:00",
     "seatsNumber": 220,
     "shopAddress": "北海道札幌市中央区○×△",

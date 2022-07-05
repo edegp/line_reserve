@@ -8,23 +8,21 @@
 <script>
 /**
  * レストランレイアウト画面
- * 
+ *
  */
 import "~/assets/css/style.css";
 import "~/assets/sass/app.scss";
-import AxiosErrorModal from '~/components/ErrorModal.vue'
+import AxiosErrorModal from "~/components/ErrorModal.vue";
 
 export default {
-    middleware: [
-        "initialize"
-    ],
+    middleware: ["initialize"],
     components: {
-        AxiosErrorModal
+        AxiosErrorModal,
     },
     data() {
         return {
             loggedIn: false,
-        }
+        };
     },
     created() {
         this.$nuxt.$on("v-show", this.show);
@@ -38,7 +36,7 @@ export default {
     methods: {
         /**
          * トップ画面へ遷移
-         * 
+         *
          */
         top() {
             this.$router.push("/");
@@ -46,14 +44,14 @@ export default {
 
         /**
          * 画面表示処理
-         * 
+         *
          * @param {boolean} showed 表示・非表示値
          */
         show(showed) {
             this.loggedIn = showed;
-        }
-    }
-}
+        },
+    },
+};
 </script>
 
 <style scoped>
@@ -62,7 +60,7 @@ h2 {
     margin: 3px;
 }
 .title {
-    font-size: 2.0em;
+    font-size: 2em;
     color: #fff;
 }
 .logo {

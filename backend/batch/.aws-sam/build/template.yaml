@@ -1,0 +1,272 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'UseCase-Batch
+
+  '
+Globals:
+  Function:
+    MemorySize: 128
+    Timeout: 30
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+    - dev
+    - prod
+    Default: dev
+Mappings:
+  EnvironmentMap:
+    dev:
+      MessageTableName: RemindMessageTableRestaurantDev
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantDev
+      EventBridgeName: AccessTokenUpdateEvent
+      LayerVersion: 5
+      LoggerLevel: DEBUG
+      TTL: true
+      TTLDay: 30
+    prod:
+      MessageTableName: RemindMessageTableRestaurantProd
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantProd
+      EventBridgeName: RestaurantEventProd
+      LayerVersion: Layer Version
+      LoggerLevel: DEBUG or INFO
+      TTL: False or True
+      TTLDay: Set day to delete data
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Policies:
+      - PolicyName: CloudWatchAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action: logs:PutLogEvents
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/Restaurant-*:*:*
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            Resource:
+            - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/Restaurant-*:*
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - ssm:GetParameters
+            Resource: '*'
+      - PolicyName: DynamoTableAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            - dynamodb:PutItem
+            - logs:CreateLogStream
+            Resource:
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MessageTable}
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MessageTable}/index/*
+            - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/Restaurant-*:*
+            - Fn::GetAtt:
+              - LINEChannelAccessTokenDB
+              - Arn
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-LambdaRole
+  LINEChannelAccessTokenDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: channelId
+        AttributeType: S
+      TableName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - LINEChannelAccessTokenDBName
+      SSESpecification:
+        SSEEnabled: true
+      KeySchema:
+      - AttributeName: channelId
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+  MessageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      - AttributeName: remindDate
+        AttributeType: S
+      TableName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - MessageTableName
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      GlobalSecondaryIndexes:
+      - IndexName: remindDate-index
+        KeySchema:
+        - AttributeName: remindDate
+          KeyType: HASH
+        Projection:
+          ProjectionType: INCLUDE
+          NonKeyAttributes:
+          - id
+          - messageInfo
+          - remindStatus
+          - notificationToken
+          - nextMessageId
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: expirationDate
+        Enabled:
+          Fn::FindInMap:
+          - EnvironmentMap
+          - Ref: Environment
+          - TTL
+  PutAccessToken:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: update_line_access_token.lambda_handler
+      Runtime: python3.8
+      CodeUri: PutAccessToken
+      FunctionName:
+        Fn::Sub: Restaurant-PutAccessToken-${Environment}
+      Description: ''
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          CHANNEL_ACCESS_TOKEN_DB:
+            Ref: LINEChannelAccessTokenDB
+    Metadata:
+      SamResourceId: PutAccessToken
+  MessagingPut:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: messaging_put_dynamo.lambda_handler
+      Runtime: python3.8
+      CodeUri: MessagingPut
+      FunctionName:
+        Fn::Sub: Restaurant-MessagingPut-${Environment}
+      Description: ''
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          MESSAGE_DB:
+            Ref: MessageTable
+          CHANNEL_ACCESS_TOKEN_DB:
+            Ref: LINEChannelAccessTokenDB
+      Events:
+        EventBridge:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 1 * * ? *)
+    Metadata:
+      SamResourceId: MessagingPut
+  EventBridge:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Check&Update for ShortTermAccessToken
+      Name:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - EventBridgeName
+      ScheduleExpression: cron(0 0 * * ? *)
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - PutAccessToken
+          - Arn
+        Id: TargetFunctionV1
+  PutAccessTokenFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: PutAccessToken
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - EventBridge
+        - Arn
+Outputs:
+  LambdaLayer:
+    Description: Used Layer at Function
+    Value:
+      Fn::Join:
+      - ':'
+      - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+        - Fn::ImportValue: RestaurantLayerDev
+        - Fn::FindInMap:
+          - EnvironmentMap
+          - Ref: Environment
+          - LayerVersion
+  LINEChannelAccessTokenDB:
+    Description: DynamoDB ARN for LINEChannelAccessToken
+    Value:
+      Fn::GetAtt:
+      - LINEChannelAccessTokenDB
+      - Arn
+  MessageTable:
+    Description: DynamoDB ARN for Message
+    Value:
+      Fn::GetAtt:
+      - MessageTable
+      - Arn

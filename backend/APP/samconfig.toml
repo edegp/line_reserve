@@ -5,3 +5,9 @@ version = 0.1
 region = "ap-northeast-1"
 capabilities = "CAPABILITY_NAMED_IAM"
 parameter_overrides = "Environment=\"dev\""
+stack_name = "anful2"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-9x3n3er9e23q"
+s3_prefix = "anful2"
+confirm_changeset = true
+disable_rollback = true
+image_repositories = []

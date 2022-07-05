@@ -24,8 +24,8 @@ Parameters:
 Mappings:
   EnvironmentMap:
     dev:
-      LINEOAChannelId: LINEOAChannelId
-      LIFFChannelId: LIFFChannelId
+      LINEOAChannelId: 1657260873
+      LIFFChannelId: 1657260860
       ShopMasterTable: RestaurantShopMaster
       ShopReservationTable: RestaurantShopReservation
       CustomerReservationTable: RestaurantReservationInfo
@@ -33,10 +33,10 @@ Mappings:
       MessageTable: RemindMessageTableRestaurantDev
       # RemindDateDifference -> Negative value if the day before the day of the reservation(ex: A day ago -> -1)
       RemindDateDifference: -1
-      FrontS3BucketName: S3 Bucket Name for Frontend
-      LayerVersion: Layer Version
-      LoggerLevel: DEBUG or INFO
-      LambdaMemorySize: 128 to 3008
+      FrontS3BucketName: anful
+      LayerVersion: 5
+      LoggerLevel: INFO
+      LambdaMemorySize: 128
       # TTL is True:Reservation Data will be deleted at the specified date, False:Data will not be deleted
       TTL: False
       # Set day to delete data
@@ -78,8 +78,7 @@ Resources:
       AttributeDefinitions:
         - AttributeName: "shopId"
           AttributeType: N
-      TableName:
-        !FindInMap [EnvironmentMap, !Ref Environment, ShopMasterTable]
+      TableName: !FindInMap [EnvironmentMap, !Ref Environment, ShopMasterTable]
       KeySchema:
         - AttributeName: "shopId"
           KeyType: "HASH"
@@ -116,7 +115,7 @@ Resources:
               KeyType: "RANGE"
           Projection:
             ProjectionType: "INCLUDE"
-            NonKeyAttributes: 
+            NonKeyAttributes:
               - "vacancyFlg"
           ProvisionedThroughput:
             ReadCapacityUnits: 1
@@ -172,7 +171,7 @@ Resources:
         App: Restaurant
       Events:
         ApiTrigger:
-          Type: Api 
+          Type: Api
           Properties:
             Path: /shop_list_get
             Method: get
@@ -208,7 +207,7 @@ Resources:
         App: Restaurant
       Events:
         ApiTrigger:
-          Type: Api 
+          Type: Api
           Properties:
             Path: /shop_calendar_get
             Method: get
@@ -244,7 +243,7 @@ Resources:
         App: Restaurant
       Events:
         ApiTrigger:
-          Type: Api 
+          Type: Api
           Properties:
             Path: /reservation_time_get
             Method: get
@@ -278,7 +277,7 @@ Resources:
         App: Restaurant
       Events:
         ApiTrigger:
-          Type: Api 
+          Type: Api
           Properties:
             Path: /course_list_get
             Method: get
@@ -306,17 +305,25 @@ Resources:
           LOGGER_LEVEL:
             !FindInMap [EnvironmentMap, !Ref Environment, LoggerLevel]
           CUSTOMER_RESERVATION_TABLE:
-            !FindInMap [EnvironmentMap, !Ref Environment, CustomerReservationTable]
+            !FindInMap [
+              EnvironmentMap,
+              !Ref Environment,
+              CustomerReservationTable,
+            ]
           SHOP_RESERVATION_TABLE:
             !FindInMap [EnvironmentMap, !Ref Environment, ShopReservationTable]
           SHOP_INFO_TABLE:
             !FindInMap [EnvironmentMap, !Ref Environment, ShopMasterTable]
           OA_CHANNEL_ID:
-            !FindInMap [EnvironmentMap, !Ref Environment, LINEOAChannelId] 
+            !FindInMap [EnvironmentMap, !Ref Environment, LINEOAChannelId]
           LIFF_CHANNEL_ID:
             !FindInMap [EnvironmentMap, !Ref Environment, LIFFChannelId]
           CHANNEL_ACCESS_TOKEN_DB:
-            !FindInMap [EnvironmentMap, !Ref Environment, LINEChannelAccessTokenDBName]
+            !FindInMap [
+              EnvironmentMap,
+              !Ref Environment,
+              LINEChannelAccessTokenDBName,
+            ]
           MESSAGE_DB:
             !FindInMap [EnvironmentMap, !Ref Environment, MessageTable]
           REMIND_DATE_DIFFERENCE:
@@ -327,12 +334,60 @@ Resources:
         App: Restaurant
       Events:
         ApiTrigger:
-          Type: Api 
+          Type: Api
           Properties:
             Path: /reservation_put
             Method: post
             RestApiId:
               Ref: RestaurantApiGateway
+
+  ReservationDelete:
+  Type: "AWS::Serverless::Function"
+  Properties:
+    Handler: reservation_delete.lambda_handler
+    Runtime: python3.8
+    CodeUri: reservation_delete/
+    FunctionName: !Sub Restaurant-ReservationDelete-${Environment}
+    Description: ""
+    Timeout: 3
+    Layers:
+      - !Join
+        - ":"
+        - - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer"
+          - !ImportValue RestaurantLayerDev
+          - !FindInMap [EnvironmentMap, !Ref Environment, LayerVersion]
+    Environment:
+      Variables:
+        LOGGER_LEVEL: !FindInMap [EnvironmentMap, !Ref Environment, LoggerLevel]
+        CUSTOMER_RESERVATION_TABLE:
+          !FindInMap [
+            EnvironmentMap,
+            !Ref Environment,
+            CustomerReservationTable,
+          ]
+        SHOP_RESERVATION_TABLE:
+          !FindInMap [EnvironmentMap, !Ref Environment, ShopReservationTable]
+        OA_CHANNEL_ID:
+          !FindInMap [EnvironmentMap, !Ref Environment, LINEOAChannelId]
+        LIFF_CHANNEL_ID:
+          !FindInMap [EnvironmentMap, !Ref Environment, LIFFChannelId]
+        CHANNEL_ACCESS_TOKEN_DB:
+          !FindInMap [
+            EnvironmentMap,
+            !Ref Environment,
+            LINEChannelAccessTokenDBName,
+          ]
+    Tags:
+      Name: LINE
+      App: Restaurant
+    Events:
+      ApiTrigger:
+        Type: Api
+        Properties:
+          Path: /reservation_delete
+          Method: delete
+          RestApiId:
+            Ref: RestaurantApiGateway
 
   RestaurantApiGateway:
     Properties:
@@ -341,7 +396,7 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowHeaders: "'Origin, Authorization, Accept, X-Requested-With, Content-Type, x-amz-date, X-Amz-Security-Token'"
-        AllowMethods: "'GET, POST, OPTIONS'"
+        AllowMethods: "'GET, POST,DELETE, OPTIONS'"
     Type: AWS::Serverless::Api
     Tags:
       - Key: "Name"
@@ -373,6 +428,7 @@ Resources:
                   - logs:CreateLogStream
                   - dynamodb:GetItem
                   - dynamodb:PutItem
+                  - dynamodb:deleteItem
                   - dynamodb:UpdateItem
                   - dynamodb:Scan
                   - dynamodb:Query
@@ -385,18 +441,30 @@ Resources:
                   - !Join
                     - ""
                     - - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/"
-                      - !FindInMap [EnvironmentMap, !Ref Environment, MessageTable]
+                      - !FindInMap [
+                          EnvironmentMap,
+                          !Ref Environment,
+                          MessageTable,
+                        ]
                   - !Join
                     - ""
                     - - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/"
-                      - !FindInMap [EnvironmentMap, !Ref Environment, MessageTable]
+                      - !FindInMap [
+                          EnvironmentMap,
+                          !Ref Environment,
+                          MessageTable,
+                        ]
                       - "/index/*"
                   - !Join
                     - ""
                     - - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/"
-                      - !FindInMap [EnvironmentMap, !Ref Environment, LINEChannelAccessTokenDBName]
+                      - !FindInMap [
+                          EnvironmentMap,
+                          !Ref Environment,
+                          LINEChannelAccessTokenDBName,
+                        ]
               - Effect: Allow
-                Action: 
+                Action:
                   - logs:CreateLogGroup
                 Resource: "*"
       RoleName: !Sub "${AWS::StackName}-LambdaRole"
@@ -438,7 +506,7 @@ Resources:
           SmoothStreaming: false
           TargetOriginId: !Sub "S3-${S3Bucket}"
           ViewerProtocolPolicy: "redirect-to-https"
-        CustomErrorResponses: 
+        CustomErrorResponses:
           - ErrorCode: 403
             ResponsePagePath: "/index.html"
             ResponseCode: "200"
@@ -459,21 +527,21 @@ Resources:
   S3Bucket:
     Type: "AWS::S3::Bucket"
     Properties:
-      BucketName: !FindInMap [EnvironmentMap, !Ref Environment, FrontS3BucketName]
-      PublicAccessBlockConfiguration: 
+      BucketName:
+        !FindInMap [EnvironmentMap, !Ref Environment, FrontS3BucketName]
+      PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
         IgnorePublicAcls: True
         RestrictPublicBuckets: True
-      BucketEncryption: 
-        ServerSideEncryptionConfiguration: 
-        - 
-          ServerSideEncryptionByDefault: 
-            SSEAlgorithm: "AES256"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
   # ### ACCESS LOG SETTING ###
-  #    LoggingConfiguration: 
+  #    LoggingConfiguration:
   #      DestinationBucketName: !Ref AccessLogBucket
-  #      LogFilePrefix: !FindInMap [EnvironmentMap, !Ref Environment, LogFilePrefix]        
+  #      LogFilePrefix: !FindInMap [EnvironmentMap, !Ref Environment, LogFilePrefix]
   # AccessLogBucket:
   #   Type: AWS::S3::Bucket
   #   Properties:
@@ -503,8 +571,8 @@ Resources:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity2}"
             Action: "s3:GetObject"
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-            Condition: 
-              Bool: 
+            Condition:
+              Bool:
                 "aws:SecureTransport": "true"
           - Sid: "2"
             Effect: "Allow"
@@ -512,17 +580,17 @@ Resources:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity}"
             Action: "s3:GetObject"
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-            Condition: 
-              Bool: 
+            Condition:
+              Bool:
                 "aws:SecureTransport": "true"
           - Action: s3:*
             Sid: "3"
             Effect: Deny
             Principal: "*"
             Resource: !Sub arn:aws:s3:::${S3Bucket}
-            Condition: 
-              Bool: 
-                "aws:SecureTransport": "false"            
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
 
   CloudFrontCloudFrontOriginAccessIdentity:
     Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
@@ -543,6 +611,10 @@ Outputs:
   CloudFrontDomainName:
     Description: "CloudFront for Restaurant Demo"
     Value: !GetAtt CloudFrontDistribution.DomainName
+  # ShopReservationTable:
+  #   Value: !GetAtt ShopReservationTable.Arn
+  # CustomerReservationTable:
+  #   Value: !GetAtt CustomerReservationTable.Arn
   LINEOAChannelId:
     Description: "LINE OA ChannelId for LIFF APP"
     Value: !FindInMap [EnvironmentMap, !Ref Environment, LINEOAChannelId]

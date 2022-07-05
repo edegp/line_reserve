@@ -1,0 +1,92 @@
+# Stack:LINE-Restaurant-Dev
+# Stack:LINE-Restaurant-Prod
+# Stack:LINE-Restaurant-Sample
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  LINE-UseCase-Restaurant-Sample
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: !FindInMap [EnvironmentMap, !Ref Environment, LambdaMemorySize]
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Mappings:
+  EnvironmentMap:
+    dev:
+      LINEOAChannelId: 1657260873
+      LIFFChannelId: 1657260860
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantDev
+      # FrontS3BucketName: anful
+      LayerVersion: 3
+      LoggerLevel: DEBUG
+      LambdaMemorySize: 128
+      # TTL is True:Reservation Data will be deleted at the specified date, False:Data will not be deleted
+      # TTL: False
+      # Set day to delete data
+      # If you set TTL: True, data will be deleted in the period specified below.
+      # Even if you set TTL: False, please set int value.
+      # TTLDay: 10
+      # ### ACCESS LOG SETTING ###
+      # LogS3Bucket: S3BucketName for AccessLog
+      # LogFilePrefix: restaurant-sample/
+      # ### ACCESS LOG SETTING ###
+    prod:
+      LINEOAChannelId: LINEOAChannelId
+      LIFFChannelId: LIFFChannelId
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      # RemindDateDifference -> Negative value if the day before the day of the reservation(ex: A day ago -> -1)
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantProd
+      # MessageTable: RemindMessageTableRestaurantDev
+      # RemindDateDifference: -1
+      # FrontS3BucketName: S3 Bucket Name for Frontend
+      LayerVersion: Layer Version
+      LoggerLevel: DEBUG or INFO
+      LambdaMemorySize: 128 to 3008
+      # TTL: True or False
+      # Set day to delete data
+      # If you set TTL: True, data will be deleted in the period specified below.
+      # Even if you set TTL: False, please set int value.
+      # TTLDay: Data Delete Day
+      # ### ACCESS LOG SETTING ###
+      # LogS3Bucket: S3 Bucket Name for AccessLog
+      # LogFilePrefix: restaurant-sample/
+      # ### ACCESS LOG SETTING ###
+
+Resources:
+ 
+  WebhookApiGateway:
+    Properties:
+      StageName: !Ref Environment
+      OpenApiVersion: 3.0.2
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Origin, Authorization, Accept, X-Requested-With, Content-Type, x-amz-date, X-Amz-Security-Token'"
+        AllowMethods: "'DELETE , GET'"
+    Type: AWS::Serverless::Api
+    Tags:
+      - Key: "Name"
+        Value: "LINE"
+      - Key: "App"
+        Value: "Restaurant"
+
+Outputs:
+  WebhookApi:
+    Description: "API Gateway endpoint URL for Prod stage for Members Card function"
+    Value: !Sub "https://${WebhookApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+  LINEOAChannelId:
+    Description: "LINE OA ChannelId for LIFF APP"
+    Value: !FindInMap [EnvironmentMap, !Ref Environment, LINEOAChannelId]

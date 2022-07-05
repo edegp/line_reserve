@@ -11,13 +11,13 @@ export default async (context) => {
      *　LIFFプロファイル取得・設定
      *
      */
-    const _settingLiffProfile = async() => {
+    const _settingLiffProfile = async () => {
         const lineUser = await context.app.$liff.getLiffProfile();
         context.store.commit("lineUser", lineUser);
-    }
+    };
 
     // LIFF Login & Profile
-    if (inited) { 
+    if (inited) {
         const lineUser = context.store.state.lineUser;
         if (!lineUser || !("expire" in lineUser)) {
             // Get LIFF Profile & Token
@@ -32,29 +32,31 @@ export default async (context) => {
         }
     } else {
         // 起動時間
-        context.store.commit("started", new Date().toLocaleString({ timeZone: "Asia/Tokyo" }));
+        context.store.commit(
+            "started",
+            new Date().toLocaleString({ timeZone: "Asia/Tokyo" })
+        );
         // 言語
         if ("lang" in context.query) {
             context.store.commit("locale", context.query.lang);
             context.app.i18n.locale = context.store.state.locale;
         } else if (context.store.state.locale) {
             context.app.i18n.locale = context.store.state.locale;
-        } 
+        }
         context.app.$utils.setLocale(context.app.i18n.locale);
         context.app.$restaurant.utils.setLocale(context.app.i18n.locale);
 
         // LIFF Initialize
-        liff.init({ liffId: context.env.LIFF_ID })
-        .then(() => {
-            context.app.$flash.set("LIFF_INITED", true);
-            const loggedIn = liff.isLoggedIn();
-            if (!loggedIn) {
-                liff.login();
-            }
-        })
-        .catch((err) => {
-            console.log(err);
-        });
+        liff.init({ liffId: context.env.LIFF_ID_2 })
+            .then(() => {
+                context.app.$flash.set("LIFF_INITED", true);
+                const loggedIn = liff.isLoggedIn();
+                if (!loggedIn) {
+                    liff.login();
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+            });
     }
-
-}
+};

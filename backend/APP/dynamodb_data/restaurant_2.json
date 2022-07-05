@@ -40,9 +40,7 @@
   ],
   "shop": {
     "averageBudget": 3000,
-    "closeDay": [
-      2
-    ],
+    "closeDay": [2],
     "closeTime": "23:00",
     "coordinate": {
       "latitude": "35.7175778",
@@ -50,7 +48,7 @@
     },
     "displayOrder": 2,
     "imageUrl": "https://media.istockphoto.com/photos/fashion-stylish-restaurant-interior-picture-id478432824",
-    "lineAccountUrl": "https://line.me/R/ti/p/@xxxxxxxx",
+    "lineAccountUrl": "https://line.me/R/ti/p/@691xhteu",
     "openTime": "10:00",
     "seatsNumber": 110,
     "shopAddress": "東京都豊島区○×△",

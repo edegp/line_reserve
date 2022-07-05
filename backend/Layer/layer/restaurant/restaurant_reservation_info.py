@@ -13,7 +13,8 @@ from common import utils
 
 class RestaurantReservationInfo(DynamoDB):
     """RestaurantReservationInfo操作用クラス"""
-    __slots__ = ['_table']
+
+    __slots__ = ["_table"]
 
     def __init__(self):
         """初期化メソッド"""
@@ -21,10 +22,20 @@ class RestaurantReservationInfo(DynamoDB):
         super().__init__(table_name)
         self._table = self._db.Table(table_name)
 
-    def put_item(self, shop_id, shop_name, user_id, user_name,
-                 course_id, course_name, reservation_people_number,
-                 reservation_date, reservation_starttime,
-                 reservation_endtime, amount):
+    def put_item(
+        self,
+        shop_id,
+        shop_name,
+        user_id,
+        user_name,
+        course_id,
+        course_name,
+        reservation_people_number,
+        reservation_date,
+        reservation_starttime,
+        reservation_endtime,
+        amount,
+    ):
         """
         データ登録
 
@@ -73,11 +84,15 @@ class RestaurantReservationInfo(DynamoDB):
             "reservationStarttime": reservation_starttime,
             "reservationEndtime": reservation_endtime,
             "amount": amount,
-            "expirationDate": utils.get_ttl_time(datetime.strptime(reservation_date, '%Y-%m-%d')),
-            'createdTime': datetime.now(
-                gettz('Asia/Tokyo')).strftime("%Y/%m/%d %H:%M:%S"),
-            'updatedTime': datetime.now(
-                gettz('Asia/Tokyo')).strftime("%Y/%m/%d %H:%M:%S"),
+            "expirationDate": utils.get_ttl_time(
+                datetime.strptime(reservation_date, "%Y-%m-%d")
+            ),
+            "createdTime": datetime.now(gettz("Asia/Tokyo")).strftime(
+                "%Y/%m/%d %H:%M:%S"
+            ),
+            "updatedTime": datetime.now(gettz("Asia/Tokyo")).strftime(
+                "%Y/%m/%d %H:%M:%S"
+            ),
         }
 
         try:
@@ -85,3 +100,83 @@ class RestaurantReservationInfo(DynamoDB):
         except Exception as e:
             raise e
         return reservation_id
+
+    def query(
+        self,
+        shop_id,
+        reservation_date,
+        user_id,
+        reservation_starttime,
+    ):
+        """
+        データ更新
+
+        Parameters
+        ----------
+        shop_id : int
+            店舗ID
+        reserved_day : str
+            予約日
+        reservation_date : str
+            予約日
+        reservation_starttime : str
+            予約開始時刻
+
+        Returns
+        -------
+        response : dict
+            レスポンス情報
+
+        """
+        key = {
+            "shopId": shop_id,
+            "reservationDate": reservation_date,
+            "userId": user_id,
+            "reservationStarttime": reservation_starttime,
+        }
+
+        try:
+            response = self._get_item(key)
+        except Exception as e:
+            raise e
+        return response
+
+    def delete_item(
+        self,
+        shop_Name,
+        user_id,
+        reservation_date,
+        reservation_starttime,
+    ):
+        """
+        データ更新
+
+        Parameters
+        ----------
+        shop_id : int
+            店舗ID
+        reserved_day : str
+            予約日
+        reservation_date : str
+            予約日
+        reservation_starttime : str
+            予約開始時刻
+
+        Returns
+        -------
+        response : dict
+            レスポンス情報
+
+        """
+        key = {
+            "shopName": shop_name,
+            "reservationDate": reservation_date,
+            "userId": user_id,
+            "reservationStarttime": reservation_starttime,
+        }
+
+        try:
+            response = self._delete_item(key)
+        except Exception as e:
+            raise e
+        return response

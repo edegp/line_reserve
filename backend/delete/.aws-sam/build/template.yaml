@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'LINE-UseCase-Restaurant-Sample
+
+  '
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize:
+      Fn::FindInMap:
+      - EnvironmentMap
+      - Ref: Environment
+      - LambdaMemorySize
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+    - dev
+    - prod
+    Default: dev
+Mappings:
+  EnvironmentMap:
+    dev:
+      LINEOAChannelId: 1657260873
+      LIFFChannelId: 1657260860
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantDev
+      LayerVersion: 3
+      LoggerLevel: DEBUG
+      LambdaMemorySize: 128
+    prod:
+      LINEOAChannelId: LINEOAChannelId
+      LIFFChannelId: LIFFChannelId
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantProd
+      LayerVersion: Layer Version
+      LoggerLevel: DEBUG or INFO
+      LambdaMemorySize: 128 to 3008
+Resources:
+  ReservationDelete:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: reservation_delete.lambda_handler
+      Runtime: python3.8
+      CodeUri: ReservationDelete
+      FunctionName:
+        Fn::Sub: Restaurant-ReservationDelete-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          CUSTOMER_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - CustomerReservationTable
+          SHOP_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopReservationTable
+          OA_CHANNEL_ID:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LINEOAChannelId
+          LIFF_CHANNEL_ID:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LIFFChannelId
+          CHANNEL_ACCESS_TOKEN_DB:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LINEChannelAccessTokenDBName
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /reservation_delete
+            Method: delete
+            RestApiId:
+              Ref: WebhookApiGateway
+    Metadata:
+      SamResourceId: ReservationDelete
+  WebhookApiGateway:
+    Properties:
+      StageName:
+        Ref: Environment
+      OpenApiVersion: 3.0.2
+      Cors:
+        AllowOrigin: '''*'''
+        AllowHeaders: '''Origin, Authorization, Accept, X-Requested-With, Content-Type,
+          x-amz-date, X-Amz-Security-Token'''
+        AllowMethods: '''DELETE , GET'''
+    Type: AWS::Serverless::Api
+    Tags:
+    - Key: Name
+      Value: LINE
+    - Key: App
+      Value: Restaurant
+Outputs:
+  WebhookApi:
+    Description: API Gateway endpoint URL for Prod stage for Members Card function
+    Value:
+      Fn::Sub: https://${WebhookApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  LINEOAChannelId:
+    Description: LINE OA ChannelId for LIFF APP
+    Value:
+      Fn::FindInMap:
+      - EnvironmentMap
+      - Ref: Environment
+      - LINEOAChannelId

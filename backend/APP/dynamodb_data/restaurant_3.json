@@ -40,9 +40,7 @@
   ],
   "shop": {
     "averageBudget": 3000,
-    "closeDay": [
-      5
-    ],
+    "closeDay": [5],
     "closeTime": "23:00",
     "coordinate": {
       "latitude": "35.6958899",
@@ -50,7 +48,7 @@
     },
     "displayOrder": 3,
     "imageUrl": "https://media.istockphoto.com/photos/modern-room-with-tables-and-chairs-picture-id639067562",
-    "lineAccountUrl": "https://line.me/R/ti/p/@xxxxxxxx",
+    "lineAccountUrl": "https://line.me/R/ti/p/@691xhteu",
     "openTime": "10:00",
     "seatsNumber": 120,
     "shopAddress": "東京都千代田区○×△",

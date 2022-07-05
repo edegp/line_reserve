@@ -12,7 +12,8 @@ from common import utils
 
 class RestaurantShopReservation(DynamoDB):
     """RestaurantShopReservation操作用クラス"""
-    __slots__ = ['_table']
+
+    __slots__ = ["_table"]
 
     def __init__(self):
         """初期化メソッド"""
@@ -20,8 +21,15 @@ class RestaurantShopReservation(DynamoDB):
         super().__init__(table_name)
         self._table = self._db.Table(table_name)
 
-    def put_item(self, shop_id, reserved_day, reserved_year_month,
-                 reserved_info, total_reserved_number, vacancy_flg):
+    def put_item(
+        self,
+        shop_id,
+        reserved_day,
+        reserved_year_month,
+        reserved_info,
+        total_reserved_number,
+        vacancy_flg,
+    ):
         """
         データ登録
 
@@ -47,17 +55,21 @@ class RestaurantShopReservation(DynamoDB):
 
         """
         item = {
-            'shopId': shop_id,
-            'reservedDay': reserved_day,
-            'reservedYearMonth': reserved_year_month,
-            'reservedInfo': reserved_info,
-            'totalReservedNumber': total_reserved_number,
-            'vacancyFlg': vacancy_flg,
-            "expirationDate": utils.get_ttl_time(datetime.strptime(reserved_day, '%Y-%m-%d')),
-            'createdTime': datetime.now(
-                gettz('Asia/Tokyo')).strftime("%Y/%m/%d %H:%M:%S"),
-            'updatedTime': datetime.now(
-                gettz('Asia/Tokyo')).strftime("%Y/%m/%d %H:%M:%S"),
+            "shopId": shop_id,
+            "reservedDay": reserved_day,
+            "reservedYearMonth": reserved_year_month,
+            "reservedInfo": reserved_info,
+            "totalReservedNumber": total_reserved_number,
+            "vacancyFlg": vacancy_flg,
+            "expirationDate": utils.get_ttl_time(
+                datetime.strptime(reserved_day, "%Y-%m-%d")
+            ),
+            "createdTime": datetime.now(gettz("Asia/Tokyo")).strftime(
+                "%Y/%m/%d %H:%M:%S"
+            ),
+            "updatedTime": datetime.now(gettz("Asia/Tokyo")).strftime(
+                "%Y/%m/%d %H:%M:%S"
+            ),
         }
 
         try:
@@ -66,8 +78,9 @@ class RestaurantShopReservation(DynamoDB):
             raise e
         return response
 
-    def update_item(self, shop_id, reserved_day, reserved_info,
-                    total_reserved_number, vacancy_flg):
+    def update_item(
+        self, shop_id, reserved_day, reserved_info, total_reserved_number, vacancy_flg
+    ):
         """
         データ更新
 
@@ -90,23 +103,69 @@ class RestaurantShopReservation(DynamoDB):
             レスポンス情報
 
         """
-        key = {'shopId': shop_id, 'reservedDay': reserved_day}
-        expression = ('set reservedInfo=:reserved_info, '
-                      'totalReservedNumber=:total_reserved_number, '
-                      'vacancyFlg=:vacancy_flg, '
-                      'updatedTime=:updated_time')
+        key = {"shopId": shop_id, "reservedDay": reserved_day}
+        expression = (
+            "set reservedInfo=:reserved_info, "
+            "totalReservedNumber=:total_reserved_number, "
+            "vacancyFlg=:vacancy_flg, "
+            "updatedTime=:updated_time"
+        )
         expression_value = {
-            ':reserved_info': reserved_info,
-            ':total_reserved_number': total_reserved_number,
-            ':vacancy_flg': vacancy_flg,
-            ':updated_time': datetime.now(
-                gettz('Asia/Tokyo')).strftime("%Y/%m/%d %H:%M:%S")
+            ":reserved_info": reserved_info,
+            ":total_reserved_number": total_reserved_number,
+            ":vacancy_flg": vacancy_flg,
+            ":updated_time": datetime.now(gettz("Asia/Tokyo")).strftime(
+                "%Y/%m/%d %H:%M:%S"
+            ),
         }
         return_value = "UPDATED_NEW"
 
         try:
-            response = self._update_item(key, expression,
-                                         expression_value, return_value)
+            response = self._update_item(
+                key, expression, expression_value, return_value
+            )
+        except Exception as e:
+            raise e
+        return response
+
+    def delete_item(
+        self,
+        shop_id,
+        user_id,
+        reserved_day,
+        reservation_starttime,
+    ):
+        """
+        データ更新
+
+        Parameters
+        ----------
+        shop_id : int
+            店舗ID
+        reserved_day : str
+            予約日
+        reserved_info : list
+            30分毎の人数、時間等の予約情報
+        total_reserved_number : int
+            指定日の合計予約人数
+        vacancy_flg : int
+            空き状況フラグ -> 0:空き無し, 1:空きあり, 2:空き少し
+
+        Returns
+        -------
+        response : dict
+            レスポンス情報
+
+        """
+        key = {
+            "shopName": shop_name,
+            "userId": user_id,
+            "reservedDay": reserved_day,
+            "reservationStarttime": reservation_starttime,
+        }
+
+        try:
+            response = self._delete_item(key)
         except Exception as e:
             raise e
         return response
@@ -128,7 +187,7 @@ class RestaurantShopReservation(DynamoDB):
             特定日の予約情報
 
         """
-        key = {'shopId': shop_id, 'reservedDay': reserved_day}
+        key = {"shopId": shop_id, "reservedDay": reserved_day}
 
         try:
             item = self._get_item(key)
@@ -136,7 +195,9 @@ class RestaurantShopReservation(DynamoDB):
             raise e
         return item
 
-    def query_index_shop_id_reserved_year_month(self, shop_id, reserved_year_month):  # noqa: E501
+    def query_index_shop_id_reserved_year_month(
+        self, shop_id, reserved_year_month
+    ):  # noqa: E501
         """
         queryメソッドを使用してshopId-reservedYearMonth-indexのインデックスからデータ取得
 
@@ -153,11 +214,11 @@ class RestaurantShopReservation(DynamoDB):
             特定年月の予約情報のリスト
 
         """
-        index = 'shopId-reservedYearMonth-index'
-        expression = 'shopId = :shop_id AND reservedYearMonth = :reserved_year_month'  # noqa: E501
+        index = "shopId-reservedYearMonth-index"
+        expression = "shopId = :shop_id AND reservedYearMonth = :reserved_year_month"  # noqa: E501
         expression_value = {
-            ':shop_id': shop_id,
-            ':reserved_year_month': reserved_year_month
+            ":shop_id": shop_id,
+            ":reserved_year_month": reserved_year_month,
         }
 
         try:

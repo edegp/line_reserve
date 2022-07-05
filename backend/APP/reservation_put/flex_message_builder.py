@@ -26,20 +26,25 @@ def create_restaurant_remind(**kwargs):
         Flexmessageの元になる辞書型データ
     """
     logger.info(kwargs)
-    shop_name = kwargs['shop_name']
-    reservation_date = kwargs['reservation_date']
-    course_name = kwargs['course_name']
-    number_of_people = kwargs['number_of_people']
-    remind_date_difference = kwargs['remind_date_difference']
+    shop_name = kwargs["shop_name"]
+    reservation_date = kwargs["reservation_date"]
+    course_name = kwargs["course_name"]
+    number_of_people = kwargs["number_of_people"]
+    remind_date_difference = kwargs["remind_date_difference"]
 
     # 予約日当日とそれ以外のメッセージで文言を変える
     if remind_date_difference < 0:
-        remind_header_msg = 'ご予約日の' + \
-            str(abs(remind_date_difference)) + '日前となりました'
+        remind_header_msg = "ご予約日の" + str(abs(remind_date_difference)) + "日前となりました"
         remind_last_msg = "当日は、お会いできることを心よりお待ちしています。\n\n※このメッセージは、Use Case 予約（レストラン）デモアプリが送信したリマインド通知です。"  # noqa: E501
+        text = "リマインド通知"
+    elif remind_date_difference == 1:
+        remind_header_msg = "ご予約ありがとうございます"
+        remind_last_msg = "当日は、お会いできることを心よりお待ちしています。\n\n※このメッセージは、Use Case 予約（レストラン）デモアプリが送信したリマインド通知です。"  # noqa: E501
+        text = "ご予約完了通知"
     else:
-        remind_header_msg = 'ご予約日の当日となりました'
+        remind_header_msg = "ご予約日の当日となりました"
         remind_last_msg = "本日は、お会いできることを心よりお待ちしています。\nどうぞお気をつけてお越しください。\n\n※このメッセージは、Use Case 予約（レストラン）デモアプリが送信したリマインド通知です。"  # noqa: E501
+        text = "リマインド通知"
 
     flex_msg = {
         "type": "flex",
@@ -53,18 +58,18 @@ def create_restaurant_remind(**kwargs):
                 "contents": [
                     {
                         "type": "text",
-                        "text": "リマインド通知",
+                        "text": text,
                         "size": "sm",
                         "weight": "bold",
-                        "color": "#36DB34"
+                        "color": "#36DB34",
                     },
                     {
                         "type": "text",
                         "text": remind_header_msg,
                         "size": "lg",
-                        "weight": "bold"
-                    }
-                ]
+                        "weight": "bold",
+                    },
+                ],
             },
             "hero": {
                 "type": "image",
@@ -75,8 +80,8 @@ def create_restaurant_remind(**kwargs):
                 "action": {
                     "type": "uri",
                     "label": "Action",
-                    "uri": "https://line.me/ja/"
-                }
+                    "uri": "https://line.me/ja/",
+                },
             },
             "body": {
                 "type": "box",
@@ -101,7 +106,7 @@ def create_restaurant_remind(**kwargs):
                                         "flex": 1,
                                         "size": "sm",
                                         "align": "start",
-                                        "color": "#5B5B5B"
+                                        "color": "#5B5B5B",
                                     },
                                     {
                                         "type": "text",
@@ -110,9 +115,9 @@ def create_restaurant_remind(**kwargs):
                                         "size": "sm",
                                         "align": "start",
                                         "color": "#666666",
-                                        "wrap": True
-                                    }
-                                ]
+                                        "wrap": True,
+                                    },
+                                ],
                             },
                             {
                                 "type": "box",
@@ -124,7 +129,7 @@ def create_restaurant_remind(**kwargs):
                                         "text": "日時:",
                                         "flex": 1,
                                         "size": "sm",
-                                        "color": "#5B5B5B"
+                                        "color": "#5B5B5B",
                                     },
                                     {
                                         "type": "text",
@@ -133,9 +138,9 @@ def create_restaurant_remind(**kwargs):
                                         "size": "sm",
                                         "align": "start",
                                         "color": "#666666",
-                                        "wrap": True
-                                    }
-                                ]
+                                        "wrap": True,
+                                    },
+                                ],
                             },
                             {
                                 "type": "box",
@@ -147,7 +152,7 @@ def create_restaurant_remind(**kwargs):
                                         "text": "コース:",
                                         "flex": 1,
                                         "size": "sm",
-                                        "color": "#5B5B5B"
+                                        "color": "#5B5B5B",
                                     },
                                     {
                                         "type": "text",
@@ -156,9 +161,9 @@ def create_restaurant_remind(**kwargs):
                                         "size": "sm",
                                         "align": "start",
                                         "color": "#666666",
-                                        "wrap": True
-                                    }
-                                ]
+                                        "wrap": True,
+                                    },
+                                ],
                             },
                             {
                                 "type": "box",
@@ -170,7 +175,7 @@ def create_restaurant_remind(**kwargs):
                                         "text": "人数:",
                                         "flex": 1,
                                         "size": "sm",
-                                        "color": "#5B5B5B"
+                                        "color": "#5B5B5B",
                                     },
                                     {
                                         "type": "text",
@@ -179,9 +184,9 @@ def create_restaurant_remind(**kwargs):
                                         "size": "sm",
                                         "align": "start",
                                         "color": "#666666",
-                                        "wrap": True
-                                    }
-                                ]
+                                        "wrap": True,
+                                    },
+                                ],
                             },
                             {
                                 "type": "box",
@@ -193,15 +198,15 @@ def create_restaurant_remind(**kwargs):
                                         "text": remind_last_msg,
                                         "size": "sm",
                                         "color": "#4A4141",
-                                        "wrap": True
+                                        "wrap": True,
                                     }
-                                ]
-                            }
-                        ]
+                                ],
+                            },
+                        ],
                     }
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     return flex_msg

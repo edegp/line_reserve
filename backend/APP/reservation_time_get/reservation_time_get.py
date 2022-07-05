@@ -1,14 +1,14 @@
 import logging
 import json
 import os
-from common import (common_const, utils)
+from common import common_const, utils
 from validation.restaurant_param_check import RestaurantParamCheck
 from restaurant.restaurant_shop_reservation import RestaurantShopReservation
 
 # ログ出力の設定
 LOGGER_LEVEL = os.environ.get("LOGGER_LEVEL")
 logger = logging.getLogger()
-if LOGGER_LEVEL == 'DEBUG':
+if LOGGER_LEVEL == "DEBUG":
     logger.setLevel(logging.DEBUG)
 else:
     logger.setLevel(logging.INFO)
@@ -38,14 +38,14 @@ def get_reservation_time(shop_id, preferred_day):
     指定日に予約がない場合、空のリストを返す
     """
     # 指定日の予約情報を取得
-    key = {'shop_id': int(shop_id), 'reserved_day': preferred_day}
-    day_reserved_info = shop_reservation_table_controller.get_item(**key)
+    key = {"shop_id": int(shop_id), "reserved_day": preferred_day}
+    day_reserved_info = shop_reservation_table_controller.query(**key)
 
     # 指定日の予約がない場合空のリストを返す
     if not day_reserved_info:
         return []
 
-    return day_reserved_info['reservedInfo']
+    return day_reserved_info["reservedInfo"]
 
 
 def lambda_handler(event, context):
@@ -66,7 +66,7 @@ def lambda_handler(event, context):
         エラーの場合、エラーコードとエラーメッセージを返却する。
     """
     logger.info(event)
-    req_param = event['queryStringParameters']
+    req_param = event["queryStringParameters"]
 
     if req_param is None:
         error_msg_disp = common_const.const.MSG_ERROR_NOPARAM
@@ -75,17 +75,18 @@ def lambda_handler(event, context):
     # パラメータのバリデーションチェック
     param_checker = RestaurantParamCheck(req_param)
     if error_msg := param_checker.check_api_reservation_time():
-        error_msg_disp = ('\n').join(error_msg)
+        error_msg_disp = ("\n").join(error_msg)
         logger.error(error_msg_disp)
         return utils.create_error_response(error_msg_disp, status=400)  # noqa: E501
 
     try:
         day_reserved_list = get_reservation_time(
-            req_param['shopId'], req_param['preferredDay'])
+            req_param["shopId"], req_param["preferredDay"]
+        )
     except Exception as e:
-        logger.exception('Occur Exception: %s', e)
-        return utils.create_error_response('ERROR')
+        logger.exception("Occur Exception: %s", e)
+        return utils.create_error_response("ERROR")
 
-    return utils.create_success_response(json.dumps(
-        day_reserved_list, default=utils.decimal_to_int,
-        ensure_ascii=False))
+    return utils.create_success_response(
+        json.dumps(day_reserved_list, default=utils.decimal_to_int, ensure_ascii=False)
+    )

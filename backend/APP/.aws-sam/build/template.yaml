@@ -1,0 +1,663 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'LINE-UseCase-Restaurant-Sample
+
+  '
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize:
+      Fn::FindInMap:
+      - EnvironmentMap
+      - Ref: Environment
+      - LambdaMemorySize
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+    - dev
+    - prod
+    Default: dev
+Mappings:
+  EnvironmentMap:
+    dev:
+      LINEOAChannelId: 1657260873
+      LIFFChannelId: 1657260860
+      ShopMasterTable: RestaurantShopMaster
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantDev
+      MessageTable: RemindMessageTableRestaurantDev
+      RemindDateDifference: -1
+      FrontS3BucketName: anful
+      LayerVersion: 3
+      LoggerLevel: INFO
+      LambdaMemorySize: 128
+      TTL: false
+      TTLDay: 10
+    prod:
+      LINEOAChannelId: LINEOAChannelId
+      LIFFChannelId: LIFFChannelId
+      ShopMasterTable: RestaurantShopMaster
+      ShopReservationTable: RestaurantShopReservation
+      CustomerReservationTable: RestaurantReservationInfo
+      LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantProd
+      MessageTable: RemindMessageTableRestaurantDev
+      RemindDateDifference: -1
+      FrontS3BucketName: S3 Bucket Name for Frontend
+      LayerVersion: Layer Version
+      LoggerLevel: DEBUG or INFO
+      LambdaMemorySize: 128 to 3008
+      TTL: True or False
+      TTLDay: Data Delete Day
+Resources:
+  ShopMasterTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: shopId
+        AttributeType: N
+      TableName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - ShopMasterTable
+      KeySchema:
+      - AttributeName: shopId
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+  ShopReservationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - ShopReservationTable
+      AttributeDefinitions:
+      - AttributeName: shopId
+        AttributeType: N
+      - AttributeName: reservedDay
+        AttributeType: S
+      - AttributeName: reservedYearMonth
+        AttributeType: S
+      KeySchema:
+      - AttributeName: shopId
+        KeyType: HASH
+      - AttributeName: reservedDay
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      GlobalSecondaryIndexes:
+      - IndexName: shopId-reservedYearMonth-index
+        KeySchema:
+        - AttributeName: shopId
+          KeyType: HASH
+        - AttributeName: reservedYearMonth
+          KeyType: RANGE
+        Projection:
+          ProjectionType: INCLUDE
+          NonKeyAttributes:
+          - vacancyFlg
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: expirationDate
+        Enabled:
+          Fn::FindInMap:
+          - EnvironmentMap
+          - Ref: Environment
+          - TTL
+  CustomerReservationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: reservationId
+        AttributeType: S
+      TableName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - CustomerReservationTable
+      KeySchema:
+      - AttributeName: reservationId
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: expirationDate
+        Enabled:
+          Fn::FindInMap:
+          - EnvironmentMap
+          - Ref: Environment
+          - TTL
+  ShopListGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: shop_list_get.lambda_handler
+      Runtime: python3.8
+      CodeUri: ShopListGet
+      FunctionName:
+        Fn::Sub: Restaurant-ShopListGet-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          SHOP_INFO_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopMasterTable
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /shop_list_get
+            Method: get
+            RestApiId:
+              Ref: RestaurantApiGateway
+    Metadata:
+      SamResourceId: ShopListGet
+  ShopCalendarGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: shop_calendar_get.lambda_handler
+      Runtime: python3.8
+      CodeUri: ShopCalendarGet
+      FunctionName:
+        Fn::Sub: Restaurant-ShopCalendarGet-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          SHOP_INFO_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopMasterTable
+          SHOP_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopReservationTable
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /shop_calendar_get
+            Method: get
+            RestApiId:
+              Ref: RestaurantApiGateway
+    Metadata:
+      SamResourceId: ShopCalendarGet
+  ReservationTimeGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: reservation_time_get.lambda_handler
+      Runtime: python3.8
+      CodeUri: ReservationTimeGet
+      FunctionName:
+        Fn::Sub: Restaurant-ReservationTimeGet-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          SHOP_INFO_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopMasterTable
+          SHOP_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopReservationTable
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /reservation_time_get
+            Method: get
+            RestApiId:
+              Ref: RestaurantApiGateway
+    Metadata:
+      SamResourceId: ReservationTimeGet
+  CourseListGet:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: course_list_get.lambda_handler
+      Runtime: python3.8
+      CodeUri: CourseListGet
+      FunctionName:
+        Fn::Sub: Restaurant-CourseListGet-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          SHOP_INFO_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopMasterTable
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /course_list_get
+            Method: get
+            RestApiId:
+              Ref: RestaurantApiGateway
+    Metadata:
+      SamResourceId: CourseListGet
+  ReservationPut:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: reservation_put.lambda_handler
+      Runtime: python3.8
+      CodeUri: ReservationPut
+      FunctionName:
+        Fn::Sub: Restaurant-ReservationPut-${Environment}
+      Description: ''
+      Timeout: 3
+      Layers:
+      - Fn::Join:
+        - ':'
+        - - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer
+          - Fn::ImportValue: RestaurantLayerDev
+          - Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LayerVersion
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Environment:
+        Variables:
+          LOGGER_LEVEL:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LoggerLevel
+          CUSTOMER_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - CustomerReservationTable
+          SHOP_RESERVATION_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopReservationTable
+          SHOP_INFO_TABLE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - ShopMasterTable
+          OA_CHANNEL_ID:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LINEOAChannelId
+          LIFF_CHANNEL_ID:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LIFFChannelId
+          CHANNEL_ACCESS_TOKEN_DB:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - LINEChannelAccessTokenDBName
+          MESSAGE_DB:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - MessageTable
+          REMIND_DATE_DIFFERENCE:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - RemindDateDifference
+          TTL_DAY:
+            Fn::FindInMap:
+            - EnvironmentMap
+            - Ref: Environment
+            - TTLDay
+      Tags:
+        Name: LINE
+        App: Restaurant
+      Events:
+        ApiTrigger:
+          Type: Api
+          Properties:
+            Path: /reservation_put
+            Method: post
+            RestApiId:
+              Ref: RestaurantApiGateway
+    Metadata:
+      SamResourceId: ReservationPut
+  RestaurantApiGateway:
+    Properties:
+      StageName:
+        Ref: Environment
+      OpenApiVersion: 3.0.2
+      Cors:
+        AllowOrigin: '''*'''
+        AllowHeaders: '''Origin, Authorization, Accept, X-Requested-With, Content-Type,
+          x-amz-date, X-Amz-Security-Token'''
+        AllowMethods: '''GET, POST, OPTIONS'''
+    Type: AWS::Serverless::Api
+    Tags:
+    - Key: Name
+      Value: LINE
+    - Key: App
+      Value: Restaurant
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action: logs:PutLogEvents
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/Restaurant-*:*:*
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            Resource:
+            - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/Restaurant-*:*
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ShopMasterTable}
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ShopReservationTable}
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ShopReservationTable}/index/*
+            - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CustomerReservationTable}
+            - Fn::Join:
+              - ''
+              - - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/
+                - Fn::FindInMap:
+                  - EnvironmentMap
+                  - Ref: Environment
+                  - MessageTable
+            - Fn::Join:
+              - ''
+              - - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/
+                - Fn::FindInMap:
+                  - EnvironmentMap
+                  - Ref: Environment
+                  - MessageTable
+                - /index/*
+            - Fn::Join:
+              - ''
+              - - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/
+                - Fn::FindInMap:
+                  - EnvironmentMap
+                  - Ref: Environment
+                  - LINEChannelAccessTokenDBName
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            Resource: '*'
+      RoleName:
+        Fn::Sub: ${AWS::StackName}-LambdaRole
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+        - ConnectionAttempts: 3
+          ConnectionTimeout: 10
+          DomainName:
+            Fn::Sub: ${S3Bucket}.s3.amazonaws.com
+          Id:
+            Fn::Sub: S3-${S3Bucket}
+          OriginPath: ''
+          S3OriginConfig:
+            OriginAccessIdentity:
+              Fn::Sub: origin-access-identity/cloudfront/${CloudFrontCloudFrontOriginAccessIdentity}
+        OriginGroups:
+          Quantity: 0
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - HEAD
+          - DELETE
+          - POST
+          - GET
+          - OPTIONS
+          - PUT
+          - PATCH
+          CachedMethods:
+          - HEAD
+          - GET
+          Compress: false
+          DefaultTTL: 0
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          MaxTTL: 0
+          MinTTL: 0
+          SmoothStreaming: false
+          TargetOriginId:
+            Fn::Sub: S3-${S3Bucket}
+          ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+        - ErrorCode: 403
+          ResponsePagePath: /index.html
+          ResponseCode: '200'
+          ErrorCachingMinTTL: 10
+        Comment: ''
+        PriceClass: PriceClass_All
+        Enabled: true
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+        HttpVersion: http2
+        DefaultRootObject: index.html
+        IPV6Enabled: true
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::FindInMap:
+        - EnvironmentMap
+        - Ref: Environment
+        - FrontS3BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3Bucket
+      PolicyDocument:
+        Version: '2008-10-17'
+        Id: PolicyForCloudFrontPrivateContent
+        Statement:
+        - Sid: '1'
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity
+                ${CloudFrontCloudFrontOriginAccessIdentity2}
+          Action: s3:GetObject
+          Resource:
+            Fn::Sub: arn:aws:s3:::${S3Bucket}/*
+          Condition:
+            Bool:
+              aws:SecureTransport: 'true'
+        - Sid: '2'
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity
+                ${CloudFrontCloudFrontOriginAccessIdentity}
+          Action: s3:GetObject
+          Resource:
+            Fn::Sub: arn:aws:s3:::${S3Bucket}/*
+          Condition:
+            Bool:
+              aws:SecureTransport: 'true'
+        - Action: s3:*
+          Sid: '3'
+          Effect: Deny
+          Principal: '*'
+          Resource:
+            Fn::Sub: arn:aws:s3:::${S3Bucket}
+          Condition:
+            Bool:
+              aws:SecureTransport: 'false'
+  CloudFrontCloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment:
+          Fn::Sub: access-identity-${S3Bucket}.s3.amazonaws.com
+  CloudFrontCloudFrontOriginAccessIdentity2:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment:
+          Fn::Sub: access-identity-${S3Bucket}.s3.amazonaws.com
+Outputs:
+  RestaurantApi:
+    Description: API Gateway endpoint URL for Prod stage for Members Card function
+    Value:
+      Fn::Sub: https://${RestaurantApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  CloudFrontDomainName:
+    Description: CloudFront for Restaurant Demo
+    Value:
+      Fn::GetAtt:
+      - CloudFrontDistribution
+      - DomainName
+  ShopReservationTable:
+    Value:
+      Fn::GetAtt:
+      - ShopReservationTable
+      - Arn
+  CustomerReservationTable:
+    Value:
+      Fn::GetAtt:
+      - CustomerReservationTable
+      - Arn
+  LINEOAChannelId:
+    Description: LINE OA ChannelId for LIFF APP
+    Value:
+      Fn::FindInMap:
+      - EnvironmentMap
+      - Ref: Environment
+      - LINEOAChannelId

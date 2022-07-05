@@ -2,10 +2,9 @@
  *　LIFFプラグイン
  *
  * @param {Object} context
- * @return {Object} 
+ * @return {Object}
  */
 const VueLiff = (context) => {
-
     return {
         /**
          * LIFF初期化
@@ -14,9 +13,9 @@ const VueLiff = (context) => {
          * @return {any} 戻り値
          */
         async init(callback) {
-            await liff.init({ liffId: context.env.LIFF_ID });
-            if (!liff.isLoggedIn()) { 
-                context.redirect("/");
+            await liff.init({ liffId: context.env.LIFF_ID_2 });
+            if (!liff.isLoggedIn()) {
+                context.redirect("/delete");
             } else {
                 return callback();
             }
@@ -24,7 +23,7 @@ const VueLiff = (context) => {
         /**
          * LIFFプロファイル取得
          *
-         * @return {Object} LIFFプロファイル情報 
+         * @return {Object} LIFFプロファイル情報
          */
         async getLiffProfile() {
             // LIFF Profile
@@ -36,7 +35,7 @@ const VueLiff = (context) => {
             const idToken = await idTokenPromise;
 
             const lineUser = {
-                expire: (new Date()).getTime() + (1000 * 60 * 30),
+                expire: new Date().getTime() + 1000 * 60 * 30,
                 userId: profile.userId,
                 name: profile.displayName,
                 image: profile.pictureUrl,
@@ -46,10 +45,9 @@ const VueLiff = (context) => {
 
             return lineUser;
         },
-   
-    }
-}
+    };
+};
 
 export default (context, inject) => {
     inject("liff", VueLiff(context));
-}
+};

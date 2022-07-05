@@ -23,14 +23,14 @@ Mappings:
     dev:
       MessageTableName: RemindMessageTableRestaurantDev
       LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantDev
-      EventBridgeName: RestaurantEventDev
-      LayerVersion: Layer Version
+      EventBridgeName: AccessTokenUpdateEvent
+      LayerVersion: 5
       LoggerLevel: DEBUG
       # TTL is True:Reservation Data will be deleted at the specified date, False:Data will not be deleted
-      TTL: False
+      TTL: True
       # Set day to delete data
       # If you set TTL: True, data will be deleted in the period specified below.
-      TTLDay: 10
+      TTLDay: 30
     prod:
       MessageTableName: RemindMessageTableRestaurantProd
       LINEChannelAccessTokenDBName: LINEChannelAccessTokenRestaurantProd
@@ -145,7 +145,7 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: "expirationDate"
         Enabled: !FindInMap [EnvironmentMap, !Ref Environment, TTL]
-            
+
   PutAccessToken:
     Type: "AWS::Serverless::Function"
     Properties:
@@ -165,9 +165,7 @@ Resources:
         Variables:
           LOGGER_LEVEL:
             !FindInMap [EnvironmentMap, !Ref Environment, LoggerLevel]
-          CHANNEL_ACCESS_TOKEN_DB:
-            !Ref LINEChannelAccessTokenDB
-
+          CHANNEL_ACCESS_TOKEN_DB: !Ref LINEChannelAccessTokenDB
 
   MessagingPut:
     Type: "AWS::Serverless::Function"
@@ -188,10 +186,8 @@ Resources:
         Variables:
           LOGGER_LEVEL:
             !FindInMap [EnvironmentMap, !Ref Environment, LoggerLevel]
-          MESSAGE_DB:
-            !Ref MessageTable
-          CHANNEL_ACCESS_TOKEN_DB:
-            !Ref LINEChannelAccessTokenDB
+          MESSAGE_DB: !Ref MessageTable
+          CHANNEL_ACCESS_TOKEN_DB: !Ref LINEChannelAccessTokenDB
       Events:
         EventBridge:
           Type: Schedule

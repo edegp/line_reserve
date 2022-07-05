@@ -7,7 +7,7 @@ Description: >
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 120
 
 Parameters:
   Environment:
@@ -21,9 +21,9 @@ Parameters:
 Mappings:
   EnvironmentMap:
     dev:
-      LayerName: LINE-USECASE-RESTAURANT-LAYER-DEV
+      LayerName: LINE-ANFUL-RESTAURANT-LAYER-DEV
     prod:
-      LayerName: LINE-USECASE-RESTAURANT-LAYER-PROD
+      LayerName: LINE-ANFUL-RESTAURANT-LAYER-PROD
 
 Resources:
   UseCaseLayerDev:
